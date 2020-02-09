@@ -1,7 +1,10 @@
 ---
+RUN:
+  client_version: '4.3.0-0.nightly'
 DEPLOYMENT:
   # TODO: update to false when supported
   allow_lower_instance_requirements: true
+  installer_version: "4.3.0-0.nightly"
 ENV_DATA:
   platform: 'vsphere'
   deployment_type: 'upi'
@@ -11,3 +14,4 @@ ENV_DATA:
   worker_num_cpus: '12'
   master_num_cpus: '4'
   memory: '65536'
+  vm_template: 'rhcos-4.3.0-x86_64-vmware'
