@@ -87,6 +87,7 @@ MACHINESETS = 'machinesets'
 STORAGECLUSTER = 'storagecluster'
 CLUSTER_OPERATOR = 'ClusterOperator'
 MONITORING = 'monitoring'
+CLUSTER_SERVICE_VERSION = 'csv'
 
 # Provisioners
 AWS_EFS_PROVISIONER = "openshift.org/aws-efs"
@@ -129,6 +130,8 @@ UPI_INSTALL_SCRIPT = "upi_on_aws-install.sh"
 
 DEFAULT_CLUSTERNAME = 'ocs-storagecluster'
 DEFAULT_BLOCKPOOL = f'{DEFAULT_CLUSTERNAME}-cephblockpool'
+METADATA_POOL = f'{DEFAULT_CLUSTERNAME}-cephfilesystem-metadata'
+DATA_POOL = f'{DEFAULT_CLUSTERNAME}-cephfilesystem-data0'
 DEFAULT_ROUTE_CRT = "router-certs-default"
 DEFAULT_NAMESPACE = "default"
 IMAGE_REGISTRY_RESOURCE_NAME = "cluster"
@@ -499,8 +502,11 @@ INTERNAL_MIRROR_PEM_FILE = "ops-mirror.pem"
 EC2_USER = "ec2-user"
 
 # UI Deployment constants
+HTPASSWD_SECRET_NAME = "htpass-secret"
 HTPASSWD_SECRET_YAML = "frontend/integration-tests/data/htpasswd-secret.yaml"
 HTPASSWD_PATCH_YAML = "frontend/integration-tests/data/patch-htpasswd.yaml"
+CHROME_BROWSER = "chrome"
+SUPPORTED_BROWSERS = (CHROME_BROWSER)
 
 # Inventory
 INVENTORY_TEMPLATE = "inventory.yaml.j2"
