@@ -2,7 +2,12 @@ import logging
 import subprocess
 from datetime import datetime
 
+import json
+import yaml
+
 from ocs_ci.ocs.resources import pod
+from ocs_ci.ocs.exceptions import CommandFailed
+from ocs_ci.utility.utils import mask_secrets
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +45,9 @@ def write_fio_on_pod(pod_obj, file_size):
     logger.info(f"File {file_name} exists in {pod_obj.name}.")
 
 
-def run_command(cmd, timeout=600, out_format="string", **kwargs):
+def run_command(
+    cmd, timeout=600, out_format="string", secrets=None, ignore_error=False, **kwargs
+):
     """
     Running command on the OS and return the STDOUT & STDERR outputs
     in case of argument is not string or list, return error message
@@ -49,13 +56,34 @@ def run_command(cmd, timeout=600, out_format="string", **kwargs):
         cmd (str/list): the command to execute
         timeout (int): the command timeout in seconds, default is 10 Min.
         out_format (str): in which format to return the output: string / list
+        secrets (list): A list of secrets to be masked with asterisks
+            This kwarg is popped in order to not interfere with
+            subprocess.run(``**kwargs``)
+        ignore_error (bool): True if ignore non zero return code and do not
+            raise the exception.
         kwargs (dict): dictionary of argument as subprocess get
 
+    Raises:
+        CommandFailed: In case the command execution fails
+
     Returns:
-        list or str : all STDOUT and STDERR output as list of lines, or one string separated by NewLine
+        (out_format) the return format is depend on the out_format argument:
+        str: all STDOUT and STDERR output as one string separated by NewLine
+        list: all STDOUT and STDERR output as list of lines
+        yaml: all data from STDOUT as YAML object
+        json: all data from STDOUT as JSON object
+        exit_code: only the command exit code will be return
+        cpobj: A CompletedProcess object of the command that was executed
+        CompletedProcess attributes:
+        args: The list or str args passed to run().
+        returncode (str): The exit code of the process, negative for signals.
+        stdout     (str): The standard output (None if not captured).
+        stderr     (str): The standard error (None if not captured).
 
     """
 
+    masked_cmd = mask_secrets(cmd, secrets)
+    logger.info(f"Executing command: {masked_cmd}")
     if isinstance(cmd, str):
         command = cmd.split()
     elif isinstance(cmd, list):
@@ -70,19 +98,52 @@ def run_command(cmd, timeout=600, out_format="string", **kwargs):
         out_format = kwargs["out_format"]
         del kwargs["out_format"]
 
-    logger.info(f"Going to format output as {out_format}")
-    logger.info(f"Going to run {cmd} with timeout of {timeout}")
+    logger.info(f"Formatting output as {out_format}")
     cp = subprocess.run(command, timeout=timeout, **kwargs)
     output = cp.stdout.decode()
     err = cp.stderr.decode()
+
+    masked_stdout = mask_secrets(output, secrets)
+    if len(output) > 0:
+        logger.debug(f"Command stdout: {masked_stdout}")
+    else:
+        logger.debug("Command stdout is empty")
+
+    masked_stderr = mask_secrets(err, secrets)
+    if len(err) > 0:
+        logger.warning(f"Command stderr: {masked_stderr}")
+    else:
+        logger.debug("Command stderr is empty")
+
+    logger.debug(f"Command return code: {cp.returncode}")
+
     # exit code is not zero
     if cp.returncode:
         logger.error(f"Command finished with non zero ({cp.returncode}): {err}")
         output += f"Error in command ({cp.returncode}): {err}"
+        if not ignore_error:
+            raise CommandFailed(
+                f"Error during execution of command: {masked_cmd}."
+                f"\nError is {masked_stderr}"
+            )
+        else:
+            if out_format == "cpobj":
+                output = cp
+    else:
+        if out_format == "exit_code":
+            output = cp.returncode
 
-    # TODO: adding more output_format types : json / yaml
+        if out_format == "cpobj":
+            output = cp
 
-    if out_format == "list":
-        output = output.split("\n")  # convert output to list
-        output.pop()  # remove last empty element from the list
+        if out_format == "list":
+            output = output.split("\n")  # convert output to list
+            output.pop()  # remove last empty element from the list
+
+        if out_format == "json":
+            output = json.loads(output)
+
+        if out_format == "yaml":
+            output = yaml.safe_load(output)
+
     return output
